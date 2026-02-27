@@ -1,18 +1,44 @@
-# Nome do workflow que aparece na aba Actions
+# =========================================================
+# Nome do workflow (aparece na aba "Actions" do GitHub)
+# =========================================================
 name: Deploy automático no Cloud Run
 
+# =========================================================
 # 🔴 WORKFLOW DESATIVADO TEMPORARIAMENTE
-# Não roda em nenhuma condição até você decidir ativar
+#
+# Motivo:
+# - Evitar deploy automático
+# - Evitar custos
+# - Projeto em fase inicial / estudo
+#
+# ✅ COMO ATIVAR NO FUTURO:
+# 1) Substitua a linha:
+#      on: []
+#
+#    por:
+#      on:
+#        push:
+#          branches:
+#            - main
+#
+# 2) Salve o arquivo e faça um commit.
+# 3) O deploy automático volta a funcionar.
+#
+# ⚠️ Enquanto `on: []` estiver aqui, ESTE WORKFLOW NÃO RODA.
+# =========================================================
 on: []
 
 jobs:
   deploy:
+    # Máquina virtual usada pelo GitHub Actions
     runs-on: ubuntu-latest
 
+    # Permissões mínimas necessárias
     permissions:
       contents: read
-      id-token: write # Necessário para Workload Identity Federation
+      id-token: write  # Necessário para Workload Identity Federation (sem chave)
 
+    # Variáveis de ambiente do projeto
     env:
       PROJECT_ID: eastern-entity-386902
       REGION: southamerica-east1
@@ -21,37 +47,53 @@ jobs:
       IMAGE_NAME: app
 
     steps:
+      # -----------------------------------------------------
       # PASSO 1 — Baixar o código do repositório
+      # -----------------------------------------------------
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # PASSO 2 — Autenticação no Google Cloud SEM chave privada
+      # -----------------------------------------------------
+      # PASSO 2 — Autenticação no Google Cloud
+      # (SEM chave privada, usando Workload Identity Federation)
+      # -----------------------------------------------------
       - name: Autenticação no Google Cloud (WIF)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/158473325797/locations/global/workloadIdentityPools/github-pool/providers/github-provider
           service_account: github-actions-deploy@eastern-entity-386902.iam.gserviceaccount.com
 
+      # -----------------------------------------------------
       # PASSO 3 — Configurar o gcloud
+      # -----------------------------------------------------
       - name: Configurar gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      # -----------------------------------------------------
       # PASSO 4 — Autenticar Docker no Artifact Registry
+      # -----------------------------------------------------
       - name: Autenticar Docker
         run: |
           gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
+      # -----------------------------------------------------
       # PASSO 5 — Build da imagem Docker
-      - name: Build da imagem
+      # -----------------------------------------------------
+      - name: Build da imagem Docker
         run: |
           docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest .
 
+      # -----------------------------------------------------
       # PASSO 6 — Enviar imagem para o Artifact Registry
-      - name: Push da imagem
+      # -----------------------------------------------------
+      - name: Push da imagem para o Artifact Registry
         run: |
           docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
 
-      # PASSO 7 — Deploy automático no Cloud Run
+      # -----------------------------------------------------
+      # PASSO 7 — Deploy no Cloud Run
+      # (Só executa quando o workflow estiver ATIVADO)
+      # -----------------------------------------------------
       - name: Deploy no Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
