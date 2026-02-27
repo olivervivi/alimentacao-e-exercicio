@@ -1,0 +1,40 @@
+# Nome do workflow que aparece na aba "Actions" do GitHub
+name: CI - Build automático do site
+
+# Define QUANDO esse workflow vai rodar
+on:
+  # Sempre que houver um push (commit enviado) na branch main
+  push:
+    branches:
+      - main
+
+# Define os trabalhos (jobs) que o GitHub Actions vai executar
+jobs:
+  build:
+    # Tipo de máquina virtual que o GitHub vai usar
+    runs-on: ubuntu-latest
+
+    # Passos executados em ordem
+    steps:
+      # PASSO 1
+      # Baixa o código do repositório para a máquina do GitHub Actions
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      # PASSO 2
+      # Configura o Node.js na versão correta para o projeto
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # PASSO 3
+      # Instala todas as dependências definidas no package.json
+      - name: Instalar dependências do projeto
+        run: npm install
+
+      # PASSO 4
+      # Executa o build do projeto
+      # Aqui o GitHub testa se o site compila corretamente
+      - name: Gerar build do site
+        run: npm run build
