@@ -1,40 +1,63 @@
-# Nome do workflow que aparece na aba "Actions" do GitHub
-name: CI - Build automático do site
+# Nome do workflow que aparece na aba Actions
+name: Deploy automático no Cloud Run
 
-# Define QUANDO esse workflow vai rodar
+# Quando o workflow roda
 on:
-  # Sempre que houver um push (commit enviado) na branch main
   push:
     branches:
       - main
 
-# Define os trabalhos (jobs) que o GitHub Actions vai executar
 jobs:
-  build:
-    # Tipo de máquina virtual que o GitHub vai usar
+  deploy:
     runs-on: ubuntu-latest
 
-    # Passos executados em ordem
+    permissions:
+      contents: read
+      id-token: write # NECESSÁRIO para Workload Identity Federation
+
+    env:
+      PROJECT_ID: eastern-entity-386902
+      REGION: southamerica-east1
+      SERVICE_NAME: alimentacao-e-exercicio
+      REPOSITORY: cloud-run
+      IMAGE_NAME: app
+
     steps:
-      # PASSO 1
-      # Baixa o código do repositório para a máquina do GitHub Actions
+      # PASSO 1 — Baixar o código do repositório
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # PASSO 2
-      # Configura o Node.js na versão correta para o projeto
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
+      # PASSO 2 — Autenticar no Google Cloud SEM chave privada
+      - name: Autenticação no Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
         with:
-          node-version: '20'
+          workload_identity_provider: projects/158473325797/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deploy@eastern-entity-386902.iam.gserviceaccount.com
 
-      # PASSO 3
-      # Instala todas as dependências definidas no package.json
-      - name: Instalar dependências do projeto
-        run: npm install
+      # PASSO 3 — Configurar o gcloud
+      - name: Configurar gcloud
+        uses: google-github-actions/setup-gcloud@v2
 
-      # PASSO 4
-      # Executa o build do projeto
-      # Aqui o GitHub testa se o site compila corretamente
-      - name: Gerar build do site
-        run: npm run build
+      # PASSO 4 — Autenticar Docker no Artifact Registry
+      - name: Autenticar Docker
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      # PASSO 5 — Build da imagem Docker
+      - name: Build da imagem
+        run: |
+          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest .
+
+      # PASSO 6 — Enviar imagem para o Artifact Registry
+      - name: Push da imagem
+        run: |
+          docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest
+
+      # PASSO 7 — Deploy automático no Cloud Run
+      - name: Deploy no Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:latest \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated
