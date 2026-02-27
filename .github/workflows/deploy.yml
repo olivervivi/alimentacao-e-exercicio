@@ -1,11 +1,9 @@
 # Nome do workflow que aparece na aba Actions
 name: Deploy automático no Cloud Run
 
-# Quando o workflow roda
-on:
-  push:
-    branches:
-      - main
+# 🔴 WORKFLOW DESATIVADO TEMPORARIAMENTE
+# Não roda em nenhuma condição até você decidir ativar
+on: []
 
 jobs:
   deploy:
@@ -13,7 +11,7 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write # NECESSÁRIO para Workload Identity Federation
+      id-token: write # Necessário para Workload Identity Federation
 
     env:
       PROJECT_ID: eastern-entity-386902
@@ -27,7 +25,7 @@ jobs:
       - name: Checkout do código
         uses: actions/checkout@v4
 
-      # PASSO 2 — Autenticar no Google Cloud SEM chave privada
+      # PASSO 2 — Autenticação no Google Cloud SEM chave privada
       - name: Autenticação no Google Cloud (WIF)
         uses: google-github-actions/auth@v2
         with:
