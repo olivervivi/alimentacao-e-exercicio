@@ -406,16 +406,22 @@ const calculatePlan = (profile: UserProfile): PlanResult => {
     let qty = rawQty;
 
     // Rounding logic for usability
-    if (food.unit === 'g') {
-      qty = Math.round(rawQty / 10) * 10; // Round to nearest 10g
-      if (qty < 10) qty = 10;
-    } else if (['unid.', 'fatia', 'pote'].includes(food.unit)) {
-       qty = Math.round(rawQty * 2) / 2; // Round to nearest 0.5
-       if (qty < 0.5) qty = 0.5;
-    } else {
-       qty = Math.round(rawQty * 2) / 2; // colheres, fios -> nearest 0.5
-       if (qty < 0.5) qty = 0.5;
-    }
+   const unit = food.unit.toLowerCase();
+const isGramBased = unit === 'g';
+const isCountableUnit = ['unid', 'fatia', 'pote'].some(prefix =>
+  unit.startsWith(prefix)
+);
+
+if (isGramBased) {
+  qty = Math.round(rawQty / 10) * 10; // arredonda para 10g
+  if (qty < 10) qty = 10;
+} else if (isCountableUnit) {
+  qty = Math.round(rawQty * 2) / 2; // arredonda para 0.5
+  if (qty < 0.5) qty = 0.5;
+} else {
+  qty = Math.round(rawQty * 2) / 2;
+  if (qty < 0.5) qty = 0.5;
+}
     
     return { ...item, qty, food };
   });
